@@ -1,4 +1,30 @@
 import SwiftUI
+import UIKit
+
+// Holds the display at a readable rate while the glide runs. The glide is a
+// slow linear animation, and CoreAnimation runs slow-moving content at 30Hz
+// to save power -- a standing 30Hz animation then paces the app's whole render
+// context, so every scroll in the app judders while a long title is scrolling.
+// The link does no work; its frame rate range is the point.
+@MainActor
+final class MarqueePacer {
+    private var link: CADisplayLink?
+
+    func start() {
+        guard link == nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(tick))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        self.link = link
+    }
+
+    func stop() {
+        link?.invalidate()
+        link = nil
+    }
+
+    @objc private func tick() {}
+}
 
 public extension Text {
     func marquee(speed: Double = 30.0, delay: Double = 4.0, insets: CGFloat? = nil, easeOutDistance: CGFloat = 40.0) -> some View {
@@ -135,9 +161,13 @@ struct MarqueeText: View {
     private func runAnimationLoop() async {
         resetOffset()
 
+        let pacer = MarqueePacer()
+        defer { pacer.stop() }
+
         try? await Task.sleep(for: .seconds(delay))
 
         while !Task.isCancelled && needsScrolling {
+            pacer.start()
             withAnimation(.linear(duration: linearDuration)) {
                 offset = -linearDistance
             }
@@ -154,6 +184,9 @@ struct MarqueeText: View {
 
             resetOffset()
 
+            // The pacer rests with the glide: the pause between passes needs no
+            // vote, so the display is free to drop while nothing moves.
+            pacer.stop()
             try? await Task.sleep(for: .seconds(delay))
         }
     }
