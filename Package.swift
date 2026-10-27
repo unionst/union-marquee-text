@@ -18,6 +18,9 @@ let package = Package(
         .target(
             name: "UnionMarqueeText"
         ),
-
+        .testTarget(
+            name: "UnionMarqueeTextTests",
+            dependencies: ["UnionMarqueeText"]
+        ),
     ]
 )

@@ -67,12 +67,8 @@ struct MarqueeText: View {
         max(0, totalDistance - easeOutDistance)
     }
 
-    private var linearDuration: Double {
-        linearDistance / speed
-    }
-
-    private var easeOutDuration: Double {
-        (easeOutDistance / speed) * 2.0
+    private var scroll: MarqueeScroll {
+        MarqueeScroll(speed: speed, linearDistance: linearDistance, easeOutDistance: totalDistance - linearDistance)
     }
 
     private var frameAlignment: Alignment {
@@ -167,19 +163,13 @@ struct MarqueeText: View {
         try? await Task.sleep(for: .seconds(delay))
 
         while !Task.isCancelled && needsScrolling {
+            let scroll = scroll
             pacer.start()
-            withAnimation(.linear(duration: linearDuration)) {
-                offset = -linearDistance
-            }
-
-            try? await Task.sleep(for: .seconds(linearDuration))
-            guard !Task.isCancelled else { break }
-
-            withAnimation(.easeOut(duration: easeOutDuration)) {
+            withAnimation(Animation(scroll)) {
                 offset = -totalDistance
             }
 
-            try? await Task.sleep(for: .seconds(easeOutDuration))
+            try? await Task.sleep(for: .seconds(scroll.duration))
             guard !Task.isCancelled else { break }
 
             resetOffset()
